@@ -1,0 +1,689 @@
+################
+## DEBUG INFO
+##
+## PROFILE: team-1
+##  - objectStoreAuth_existingSecret: generated--kubeflow-pipelines--profile-object-store-auth--team-1
+##  - objectStoreAuth_existingSecretAccessKeyKey: accesskey
+##  - objectStoreAuth_existingSecretNamespace: deploykf-minio
+##  - objectStoreAuth_existingSecretSecretKeyKey: secretkey
+##  - objectStoreAuth_fromEnv: false
+##
+## PROFILE: team-1-prod
+##  - objectStoreAuth_existingSecret: generated--kubeflow-pipelines--profile-object-store-auth--team-1-prod
+##  - objectStoreAuth_existingSecretAccessKeyKey: accesskey
+##  - objectStoreAuth_existingSecretNamespace: deploykf-minio
+##  - objectStoreAuth_existingSecretSecretKeyKey: secretkey
+##  - objectStoreAuth_fromEnv: false
+################
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  ## the max name length is 63, so to avoid collisions we include part of the SHA256 of the profile name
+  name: "clone-profile-bucket-secret-7e2a2d5f-team-1"
+  annotations:
+    ## kyverno policies with "generate" cant be updated: https://github.com/kyverno/kyverno/issues/7718
+    argocd.argoproj.io/sync-options: Replace=true
+    ## kyverno policies that clone resources must be synced before other resources
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  generateExisting: true
+  rules:
+    ## clone the secret from the source namespace to the target namespace
+    - name: clone-secret
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+              names:
+                - "team-1"
+      generate:
+        apiVersion: v1
+        kind: Secret
+        name: "mlpipeline-minio-artifact"
+        namespace: "{{ request.object.metadata.name }}"
+        synchronize: true
+        clone:
+          namespace: "deploykf-minio"
+          name: "generated--kubeflow-pipelines--profile-object-store-auth--team-1"
+
+    ## annotate the ~cloned~ secret so that ArgoCD ignores it
+    - name: annotate-cloned-secret
+      match:
+        any:
+          - resources:
+              kinds:
+                - Secret
+              names:
+                - "mlpipeline-minio-artifact"
+              namespaces:
+                - "team-1"
+              operations:
+                - CREATE
+                - UPDATE
+              selector:
+                matchLabels:
+                  generate.kyverno.io/policy-name: "clone-profile-bucket-secret-7e2a2d5f-team-1"
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            annotations:
+              argocd.argoproj.io/compare-options: IgnoreExtraneous
+              argocd.argoproj.io/sync-options: Prune=false
+
+    ## restart deployments using the ~cloned~ secret when the ~source~ secret is updated
+    ## NOTE: kyverno ignores its own updates, so we cant trigger from the ~cloned~ secret
+    - name: trigger-deployment-restarts
+      match:
+        any:
+          - resources:
+              kinds:
+                - Secret
+              names:
+                - "generated--kubeflow-pipelines--profile-object-store-auth--team-1"
+              namespaces:
+                - "deploykf-minio"
+              operations:
+                - CREATE
+                - UPDATE
+      preconditions:
+        all:
+          - key: "{{ request.operation || 'BACKGROUND' }}"
+            operator: AnyIn
+            value:
+              - CREATE
+              - UPDATE
+      mutate:
+        targets:
+          - apiVersion: apps/v1
+            kind: Deployment
+            namespace: "team-1"
+        patchStrategicMerge:
+          spec:
+            template:
+              metadata:
+                annotations:
+                  deploykf.org/restart-trigger: "{{ random('[0-9a-z]{32}') }}"
+              spec:
+                containers:
+                  - env:
+                      - valueFrom:
+                          secretKeyRef:
+                            <(name): "mlpipeline-minio-artifact"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  ## the max name length is 63, so to avoid collisions we include part of the SHA256 of the profile name
+  name: "clone-profile-bucket-secret-d81b8cd1-team-1-prod"
+  annotations:
+    ## kyverno policies with "generate" cant be updated: https://github.com/kyverno/kyverno/issues/7718
+    argocd.argoproj.io/sync-options: Replace=true
+    ## kyverno policies that clone resources must be synced before other resources
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  generateExisting: true
+  rules:
+    ## clone the secret from the source namespace to the target namespace
+    - name: clone-secret
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+              names:
+                - "team-1-prod"
+      generate:
+        apiVersion: v1
+        kind: Secret
+        name: "mlpipeline-minio-artifact"
+        namespace: "{{ request.object.metadata.name }}"
+        synchronize: true
+        clone:
+          namespace: "deploykf-minio"
+          name: "generated--kubeflow-pipelines--profile-object-store-auth--team-1-prod"
+
+    ## annotate the ~cloned~ secret so that ArgoCD ignores it
+    - name: annotate-cloned-secret
+      match:
+        any:
+          - resources:
+              kinds:
+                - Secret
+              names:
+                - "mlpipeline-minio-artifact"
+              namespaces:
+                - "team-1-prod"
+              operations:
+                - CREATE
+                - UPDATE
+              selector:
+                matchLabels:
+                  generate.kyverno.io/policy-name: "clone-profile-bucket-secret-d81b8cd1-team-1-prod"
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            annotations:
+              argocd.argoproj.io/compare-options: IgnoreExtraneous
+              argocd.argoproj.io/sync-options: Prune=false
+
+    ## restart deployments using the ~cloned~ secret when the ~source~ secret is updated
+    ## NOTE: kyverno ignores its own updates, so we cant trigger from the ~cloned~ secret
+    - name: trigger-deployment-restarts
+      match:
+        any:
+          - resources:
+              kinds:
+                - Secret
+              names:
+                - "generated--kubeflow-pipelines--profile-object-store-auth--team-1-prod"
+              namespaces:
+                - "deploykf-minio"
+              operations:
+                - CREATE
+                - UPDATE
+      preconditions:
+        all:
+          - key: "{{ request.operation || 'BACKGROUND' }}"
+            operator: AnyIn
+            value:
+              - CREATE
+              - UPDATE
+      mutate:
+        targets:
+          - apiVersion: apps/v1
+            kind: Deployment
+            namespace: "team-1-prod"
+        patchStrategicMerge:
+          spec:
+            template:
+              metadata:
+                annotations:
+                  deploykf.org/restart-trigger: "{{ random('[0-9a-z]{32}') }}"
+              spec:
+                containers:
+                  - env:
+                      - valueFrom:
+                          secretKeyRef:
+                            <(name): "mlpipeline-minio-artifact"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: metadata-grpc-configmap
+  namespace: "team-1"
+  annotations:
+    ## NOTE: previously we used Kyverno to create this resource, the old values of these annotations would make ArgoCD ignore it
+    argocd.argoproj.io/compare-options: ""
+    argocd.argoproj.io/sync-options: ""
+data:
+  METADATA_GRPC_SERVICE_HOST: "metadata-grpc-service.kubeflow"
+  METADATA_GRPC_SERVICE_PORT: "8080"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-pipeline-visualizationserver
+  namespace: "team-1"
+  annotations:
+    ## NOTE: previously we used Kyverno to create this resource, the old values of these annotations would make ArgoCD ignore it
+    argocd.argoproj.io/compare-options: ""
+    argocd.argoproj.io/sync-options: ""
+  labels:
+    app: ml-pipeline-visualizationserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-pipeline-visualizationserver
+  template:
+    metadata:
+      labels:
+        app: ml-pipeline-visualizationserver
+    spec:
+      serviceAccountName: default-editor
+      containers:
+        - name: ml-pipeline-visualizationserver
+          ## NOTE: $(kfp-app-version) is a Kustomize variable which is replaced during Kustomize rendering
+          image: "gcr.io/ml-pipeline/visualization-server:$(kfp-app-version)"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8888
+          resources:
+            requests:
+              cpu: 50m
+              memory: 200Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: ml-pipeline-visualizationserver
+  namespace: "team-1"
+  annotations:
+    ## NOTE: previously we used Kyverno to create this resource, the old values of these annotations would make ArgoCD ignore it
+    argocd.argoproj.io/compare-options: ""
+    argocd.argoproj.io/sync-options: ""
+spec:
+  host: ml-pipeline-visualizationserver
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: ml-pipeline-visualizationserver
+  namespace: "team-1"
+  annotations:
+    ## NOTE: previously we used Kyverno to create this resource, the old values of these annotations would make ArgoCD ignore it
+    argocd.argoproj.io/compare-options: ""
+    argocd.argoproj.io/sync-options: ""
+spec:
+  selector:
+    matchLabels:
+      app: ml-pipeline-visualizationserver
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/kubeflow/sa/ml-pipeline
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-pipeline-visualizationserver
+  namespace: "team-1"
+  annotations:
+    ## NOTE: previously we used Kyverno to create this resource, the old values of these annotations would make ArgoCD ignore it
+    argocd.argoproj.io/compare-options: ""
+    argocd.argoproj.io/sync-options: ""
+spec:
+  selector:
+    app: ml-pipeline-visualizationserver
+  ports:
+    - name: http
+      port: 8888
+      protocol: TCP
+      targetPort: 8888
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-pipeline-ui-artifact
+  namespace: "team-1"
+  annotations:
+    ## NOTE: previously we used Kyverno to create this resource, the old values of these annotations would make ArgoCD ignore it
+    argocd.argoproj.io/compare-options: ""
+    argocd.argoproj.io/sync-options: ""
+  labels:
+    app: ml-pipeline-ui-artifact
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-pipeline-ui-artifact
+  template:
+    metadata:
+      labels:
+        app: ml-pipeline-ui-artifact
+    spec:
+      ## NOTE: we use 'default-editor' so this pod has the same access as workflow pods when using "AWS IRSA" or "GCP Workload Identity" plugins
+      serviceAccountName: default-editor
+      securityContext:
+        ## NOTE: this is important for AWS IRSA
+        fsGroup: 65534
+      containers:
+        - name: ml-pipeline-ui-artifact
+          ## NOTE: $(kfp-app-version) is a Kustomize variable which is replaced during Kustomize rendering
+          image: "gcr.io/ml-pipeline/frontend:$(kfp-app-version)"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              cpu: 10m
+              memory: 70Mi
+            limits:
+              cpu: 100m
+              memory: 500Mi
+          env:
+            ## ================================
+            ## Minio - Object Store Configs
+            ## ================================
+            - name: MINIO_NAMESPACE
+              ## NOTE: must be empty, or kubeflow pipelines will attempt to append the namespace to MINIO_HOST
+              value: ""
+            - name: MINIO_HOST
+              value: "deploykf-minio-api.deploykf-minio.svc.cluster.local"
+            - name: MINIO_PORT
+              value: "9000"
+            - name: MINIO_SSL
+              value: "false"
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: "mlpipeline-minio-artifact"
+                  key: "accesskey"
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: "mlpipeline-minio-artifact"
+                  key: "secretkey"
+            ## ================================
+            ## S3 - Object Store Configs
+            ## ================================
+            - name: AWS_REGION
+              value: ""
+            - name: AWS_S3_ENDPOINT
+              value: "deploykf-minio-api.deploykf-minio.svc.cluster.local:9000"
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: "mlpipeline-minio-artifact"
+                  key: "accesskey"
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: "mlpipeline-minio-artifact"
+                  key: "secretkey"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-pipeline-ui-artifact
+  namespace: "team-1"
+  annotations:
+    ## NOTE: previously we used Kyverno to create this resource, the old values of these annotations would make ArgoCD ignore it
+    argocd.argoproj.io/compare-options: ""
+    argocd.argoproj.io/sync-options: ""
+spec:
+  selector:
+    app: ml-pipeline-ui-artifact
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 3000
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: artifact-repositories
+  namespace: "team-1"
+  annotations:
+    workflows.argoproj.io/default-artifact-repository: default-v1
+    
+    ## NOTE: previously we used Kyverno to create this resource, the old values of these annotations would make ArgoCD ignore it
+    argocd.argoproj.io/compare-options: ""
+    argocd.argoproj.io/sync-options: ""
+data:
+  default-v1: |
+    archiveLogs: true
+    s3:
+      endpoint: "deploykf-minio-api.deploykf-minio.svc.cluster.local:9000"
+      insecure: true
+      bucket: "kubeflow-pipelines"
+      region: ""
+      keyFormat: "artifacts/{{ workflow.namespace }}/{{ workflow.name }}/{{ workflow.creationTimestamp.Y }}/{{ workflow.creationTimestamp.m }}/{{ workflow.creationTimestamp.d }}/{{ pod.name }}"
+      accessKeySecret:
+        name: "mlpipeline-minio-artifact"
+        key: "accesskey"
+      secretKeySecret:
+        name: "mlpipeline-minio-artifact"
+        key: "secretkey"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kfp-launcher
+  namespace: "team-1"
+  annotations:
+    ## NOTE: previously we used Kyverno to create this resource, the old values of these annotations would make ArgoCD ignore it
+    argocd.argoproj.io/compare-options: ""
+    argocd.argoproj.io/sync-options: ""
+data:
+  defaultPipelineRoot: "minio://kubeflow-pipelines/v2/artifacts/team-1"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: metadata-grpc-configmap
+  namespace: "team-1-prod"
+  annotations:
+    ## NOTE: previously we used Kyverno to create this resource, the old values of these annotations would make ArgoCD ignore it
+    argocd.argoproj.io/compare-options: ""
+    argocd.argoproj.io/sync-options: ""
+data:
+  METADATA_GRPC_SERVICE_HOST: "metadata-grpc-service.kubeflow"
+  METADATA_GRPC_SERVICE_PORT: "8080"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-pipeline-visualizationserver
+  namespace: "team-1-prod"
+  annotations:
+    ## NOTE: previously we used Kyverno to create this resource, the old values of these annotations would make ArgoCD ignore it
+    argocd.argoproj.io/compare-options: ""
+    argocd.argoproj.io/sync-options: ""
+  labels:
+    app: ml-pipeline-visualizationserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-pipeline-visualizationserver
+  template:
+    metadata:
+      labels:
+        app: ml-pipeline-visualizationserver
+    spec:
+      serviceAccountName: default-editor
+      containers:
+        - name: ml-pipeline-visualizationserver
+          ## NOTE: $(kfp-app-version) is a Kustomize variable which is replaced during Kustomize rendering
+          image: "gcr.io/ml-pipeline/visualization-server:$(kfp-app-version)"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8888
+          resources:
+            requests:
+              cpu: 50m
+              memory: 200Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: ml-pipeline-visualizationserver
+  namespace: "team-1-prod"
+  annotations:
+    ## NOTE: previously we used Kyverno to create this resource, the old values of these annotations would make ArgoCD ignore it
+    argocd.argoproj.io/compare-options: ""
+    argocd.argoproj.io/sync-options: ""
+spec:
+  host: ml-pipeline-visualizationserver
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: ml-pipeline-visualizationserver
+  namespace: "team-1-prod"
+  annotations:
+    ## NOTE: previously we used Kyverno to create this resource, the old values of these annotations would make ArgoCD ignore it
+    argocd.argoproj.io/compare-options: ""
+    argocd.argoproj.io/sync-options: ""
+spec:
+  selector:
+    matchLabels:
+      app: ml-pipeline-visualizationserver
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/kubeflow/sa/ml-pipeline
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-pipeline-visualizationserver
+  namespace: "team-1-prod"
+  annotations:
+    ## NOTE: previously we used Kyverno to create this resource, the old values of these annotations would make ArgoCD ignore it
+    argocd.argoproj.io/compare-options: ""
+    argocd.argoproj.io/sync-options: ""
+spec:
+  selector:
+    app: ml-pipeline-visualizationserver
+  ports:
+    - name: http
+      port: 8888
+      protocol: TCP
+      targetPort: 8888
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-pipeline-ui-artifact
+  namespace: "team-1-prod"
+  annotations:
+    ## NOTE: previously we used Kyverno to create this resource, the old values of these annotations would make ArgoCD ignore it
+    argocd.argoproj.io/compare-options: ""
+    argocd.argoproj.io/sync-options: ""
+  labels:
+    app: ml-pipeline-ui-artifact
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-pipeline-ui-artifact
+  template:
+    metadata:
+      labels:
+        app: ml-pipeline-ui-artifact
+    spec:
+      ## NOTE: we use 'default-editor' so this pod has the same access as workflow pods when using "AWS IRSA" or "GCP Workload Identity" plugins
+      serviceAccountName: default-editor
+      securityContext:
+        ## NOTE: this is important for AWS IRSA
+        fsGroup: 65534
+      containers:
+        - name: ml-pipeline-ui-artifact
+          ## NOTE: $(kfp-app-version) is a Kustomize variable which is replaced during Kustomize rendering
+          image: "gcr.io/ml-pipeline/frontend:$(kfp-app-version)"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              cpu: 10m
+              memory: 70Mi
+            limits:
+              cpu: 100m
+              memory: 500Mi
+          env:
+            ## ================================
+            ## Minio - Object Store Configs
+            ## ================================
+            - name: MINIO_NAMESPACE
+              ## NOTE: must be empty, or kubeflow pipelines will attempt to append the namespace to MINIO_HOST
+              value: ""
+            - name: MINIO_HOST
+              value: "deploykf-minio-api.deploykf-minio.svc.cluster.local"
+            - name: MINIO_PORT
+              value: "9000"
+            - name: MINIO_SSL
+              value: "false"
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: "mlpipeline-minio-artifact"
+                  key: "accesskey"
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: "mlpipeline-minio-artifact"
+                  key: "secretkey"
+            ## ================================
+            ## S3 - Object Store Configs
+            ## ================================
+            - name: AWS_REGION
+              value: ""
+            - name: AWS_S3_ENDPOINT
+              value: "deploykf-minio-api.deploykf-minio.svc.cluster.local:9000"
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: "mlpipeline-minio-artifact"
+                  key: "accesskey"
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: "mlpipeline-minio-artifact"
+                  key: "secretkey"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-pipeline-ui-artifact
+  namespace: "team-1-prod"
+  annotations:
+    ## NOTE: previously we used Kyverno to create this resource, the old values of these annotations would make ArgoCD ignore it
+    argocd.argoproj.io/compare-options: ""
+    argocd.argoproj.io/sync-options: ""
+spec:
+  selector:
+    app: ml-pipeline-ui-artifact
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 3000
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: artifact-repositories
+  namespace: "team-1-prod"
+  annotations:
+    workflows.argoproj.io/default-artifact-repository: default-v1
+    
+    ## NOTE: previously we used Kyverno to create this resource, the old values of these annotations would make ArgoCD ignore it
+    argocd.argoproj.io/compare-options: ""
+    argocd.argoproj.io/sync-options: ""
+data:
+  default-v1: |
+    archiveLogs: true
+    s3:
+      endpoint: "deploykf-minio-api.deploykf-minio.svc.cluster.local:9000"
+      insecure: true
+      bucket: "kubeflow-pipelines"
+      region: ""
+      keyFormat: "artifacts/{{ workflow.namespace }}/{{ workflow.name }}/{{ workflow.creationTimestamp.Y }}/{{ workflow.creationTimestamp.m }}/{{ workflow.creationTimestamp.d }}/{{ pod.name }}"
+      accessKeySecret:
+        name: "mlpipeline-minio-artifact"
+        key: "accesskey"
+      secretKeySecret:
+        name: "mlpipeline-minio-artifact"
+        key: "secretkey"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kfp-launcher
+  namespace: "team-1-prod"
+  annotations:
+    ## NOTE: previously we used Kyverno to create this resource, the old values of these annotations would make ArgoCD ignore it
+    argocd.argoproj.io/compare-options: ""
+    argocd.argoproj.io/sync-options: ""
+data:
+  defaultPipelineRoot: "minio://kubeflow-pipelines/v2/artifacts/team-1-prod"
