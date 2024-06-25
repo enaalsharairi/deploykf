@@ -1,0 +1,117 @@
+##
+## Notes:
+##  - YAML maps are RECURSIVELY merged across values files
+##  - YAML lists are REPLACED in their entirety across values files
+##  - Do NOT include empty/null sections, as this will remove ALL values from that section.
+##    To include a section without overriding any values, set it to an empty map: `{}`
+##
+
+## --------------------------------------------------------------------------------
+##                                      argocd
+## --------------------------------------------------------------------------------
+argocd:
+  namespace: argocd
+  project: default
+
+  source:
+    ## the git repo where you will store your generated manifests
+    ##  - url: the URL of the git repo
+    ##  - revision: the git branch/tag/commit to read from
+    ##  - path: the repo folder path where the generated manifests are stored
+    ##
+    repo:
+      url: "https://github.com/enaalsharairi/deploykf.git"
+      revision: "main"
+      path: "./GeneatedManifest/"
+
+## --------------------------------------------------------------------------------
+##                                    kubernetes
+## --------------------------------------------------------------------------------
+kubernetes:
+  {} # <-- REMOVE THIS, IF YOU INCLUDE VALUES UNDER THIS SECTION!
+
+## --------------------------------------------------------------------------------
+##                              deploykf-dependencies
+## --------------------------------------------------------------------------------
+deploykf_dependencies:
+
+  ## --------------------------------------
+  ##             cert-manager
+  ## --------------------------------------
+  cert_manager:
+    {} # <-- REMOVE THIS, IF YOU INCLUDE VALUES UNDER THIS SECTION!
+
+  ## --------------------------------------
+  ##                 istio
+  ## --------------------------------------
+  istio:
+    {} # <-- REMOVE THIS, IF YOU INCLUDE VALUES UNDER THIS SECTION!
+
+  ## --------------------------------------
+  ##                kyverno
+  ## --------------------------------------
+  kyverno:
+    {} # <-- REMOVE THIS, IF YOU INCLUDE VALUES UNDER THIS SECTION!
+
+## --------------------------------------------------------------------------------
+##                                  deploykf-core
+## --------------------------------------------------------------------------------
+deploykf_core:
+
+  ## --------------------------------------
+  ##             deploykf-auth
+  ## --------------------------------------
+  deploykf_auth:
+    {} # <-- REMOVE THIS, IF YOU INCLUDE VALUES UNDER THIS SECTION!
+
+  ## --------------------------------------
+  ##        deploykf-istio-gateway
+  ## --------------------------------------
+  deploykf_istio_gateway:
+    {} # <-- REMOVE THIS, IF YOU INCLUDE VALUES UNDER THIS SECTION!
+
+  ## --------------------------------------
+  ##      deploykf-profiles-generator
+  ## --------------------------------------
+  deploykf_profiles_generator:
+    {} # <-- REMOVE THIS, IF YOU INCLUDE VALUES UNDER THIS SECTION!
+
+## --------------------------------------------------------------------------------
+##                                   deploykf-opt
+## --------------------------------------------------------------------------------
+deploykf_opt:
+
+  ## --------------------------------------
+  ##            deploykf-minio
+  ## --------------------------------------
+  deploykf_minio:
+    {} # <-- REMOVE THIS, IF YOU INCLUDE VALUES UNDER THIS SECTION!
+
+  ## --------------------------------------
+  ##            deploykf-mysql
+  ## --------------------------------------
+  deploykf_mysql:
+    {} # <-- REMOVE THIS, IF YOU INCLUDE VALUES UNDER THIS SECTION!
+
+## --------------------------------------------------------------------------------
+##                                  kubeflow-tools
+## --------------------------------------------------------------------------------
+kubeflow_tools:
+
+  ## --------------------------------------
+  ##                 katib
+  ## --------------------------------------
+  katib:
+    {} # <-- REMOVE THIS, IF YOU INCLUDE VALUES UNDER THIS SECTION!
+
+  ## --------------------------------------
+  ##               notebooks
+  ## --------------------------------------
+  notebooks:
+    {} # <-- REMOVE THIS, IF YOU INCLUDE VALUES UNDER THIS SECTION!
+
+  ## --------------------------------------
+  ##               pipelines
+  ## --------------------------------------
+  pipelines:
+    {} # <-- REMOVE THIS, IF YOU INCLUDE VALUES UNDER THIS SECTION!
